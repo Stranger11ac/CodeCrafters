@@ -1,0 +1,9 @@
+Cambiar contraseña de MySQL:
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'NuevaContraseña123!';
+FLUSH PRIVILEGES;
+
+Comprobacion de la contraseña:
+cd "C:\Program Files\MySQL\MySQL Server 8.0\bin"
+.\mysql -u root -p
+
+# te pedirá la contraseña: ingresa L0c4lP$SS
