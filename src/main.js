@@ -1,56 +1,73 @@
 $(document).ready(function () {
-    $("#createMovie").on("click", function () {
-        insertarPelicula();
-    })
-    $("#createLevel").on("click", function () {
-        insertarClasificacion();
-    })
+    $("#loginForm").submit(function (event) {
+        event.preventDefault();
+        loginFunction($(this));
+    });
 
-    function insertarPelicula() {
-        const peliculaData = {
-            Nombre: "Inception",
-            Director: "Christopher Nolan",
-            Duracion: "148 min",
-            Genero: "Ciencia ficción",
-            FechaLanzamiento: "2010-07-16",
-            ClasificacionId: 2, // Mayores de 14
+    function loginFunction(form) {
+        const loginData = {
+            username: $(form).find("#username").val(),
+            password: $(form).find("#password").val(),
         };
 
         $.ajax({
-            url: "http://localhost:8220/insert_movie",
+            url: "http://localhost:8220/login",
             type: "POST",
             contentType: "application/json",
-            data: JSON.stringify(peliculaData),
+            data: JSON.stringify(loginData),
             success: function (response) {
-                console.log("Película insertada:", response);
-                alert("Película insertada correctamente");
+                localStorage.setItem("access_token", response.access_token);
+                toast({
+                    icon: "success",
+                    title: "Inicio de Sesión Exitoso",
+                    subtitle: "¡Bienvenido de nuevo!",
+                });
             },
             error: function (xhr, status, error) {
-                console.error("Error al insertar película:", xhr.responseText);
-                alert("Error al insertar película");
+                console.error("Error de login:", xhr.responseText);
+                toast({
+                    icon: "error",
+                    title: "Error al intentar Iniciar Sesión",
+                    subtitle: "Credenciales incorrectas",
+                });
             },
         });
     }
 
-    function insertarClasificacion() {
-        const nivelData = {
-            ClasificacionDesc: "Mayores de 18",
-        };
-
-        $.ajax({
-            url: "http://localhost:8220/insert_level",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify(nivelData),
-            success: function (response) {
-                console.log("Clasificación insertada:", response);
-                alert("Clasificación insertada correctamente");
+    function toast(options) {
+        var settings = $.extend(
+            {
+                icon: "<i class='ic-solar star-duotone'></i>",
+                position: "top",
+                time: 5000,
+                title: "Título",
+                subtitle: "",
+                onClose: null,
             },
-            error: function (xhr, status, error) {
-                console.error("Error al insertar clasificación:", xhr.responseText);
-                alert("Error al insertar clasificación");
+            options
+        );
+
+        const Toast = Swal.mixin({
+            toast: true,
+            position: settings.position,
+            showConfirmButton: false,
+            showCloseButton: true,
+            timer: settings.time,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.onmouseenter = Swal.stopTimer;
+                toast.onmouseleave = Swal.resumeTimer;
+            },
+            didClose: () => {
+                if (typeof settings.onClose === "function") {
+                    settings.onClose();
+                }
             },
         });
+        Toast.fire({
+            icon: settings.icon,
+            title: settings.title,
+            text: settings.subtitle,
+        });
     }
-
 });

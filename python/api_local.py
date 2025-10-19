@@ -14,7 +14,7 @@ from settings import settings
 app = FastAPI()
 SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_MINUTES = 120
+TOKEN_EXPIRE_MINUTES = 12000
 
 # --- Middleware CORS ---
 app.add_middleware(
@@ -52,6 +52,7 @@ def get_connection():
             port=3306
         )
         if connection.is_connected():
+            print("✅ Conexión exitosa a MySQL")
             return connection
     except Error as e:
         print(f"❌ Error al conectar a MySQL: {e}")
@@ -179,3 +180,5 @@ def get_level(username: str = Depends(verify_token)):
         cursor.close()
         conn.close()
 
+conn = get_connection()
+conn.close()
