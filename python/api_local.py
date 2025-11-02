@@ -58,13 +58,16 @@ def get_connection():
         print(f"❌ Error al conectar a MySQL: {e}")
         return None
 
-# --- Función para crear token ---
-def create_token(username: str):
+# -------------------- Función para crear token --------------------
+def create_token(username: str, fullname: str):
     expire = datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": username, "exp": expire}
+    payload = {
+        "sub": username,         # nombre de usuario
+        "fullname": fullname,    # nombre completo
+        "exp": expire
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-# --- Validar token ---
 def verify_token(Authorization: Optional[str] = Header(None)):
     if not Authorization:
         raise HTTPException(status_code=401, detail="Token no proporcionado")
@@ -72,13 +75,13 @@ def verify_token(Authorization: Optional[str] = Header(None)):
     token = Authorization.replace("Bearer ", "")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload["sub"]
+        return payload  # <-- devuelve todo el contenido (username, fullname, etc.)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-# --- Endpoint de login ---
+# ------------------------ Endpoint de login ------------------------
 @app.post("/login")
 def login(credentials: LoginRequest):
     conn = get_connection()
@@ -97,15 +100,26 @@ def login(credentials: LoginRequest):
         if hashed_password != user["password"]:
             raise HTTPException(status_code=401, detail="Contraseña incorrecta")
 
-        token = create_token(credentials.username)
-        return {"access_token": token, "token_type": "Bearer", "expires_in": TOKEN_EXPIRE_MINUTES * 60}
+        # ✅ Ahora pasamos también el fullname al token
+        token = create_token(user["username"], user["fullname"])
+
+        return {
+            "access_token": token,
+            "token_type": "Bearer",
+            "expires_in": TOKEN_EXPIRE_MINUTES * 60
+        }
     finally:
         cursor.close()
         conn.close()
 
-# --- Endpoints protegidos ---
+# ------------------------ Endpoints protegidos ------------------------
+
 @app.post("/insert_movie")
-def insert_movie(structure: movieStructure, username: str = Depends(verify_token)):
+def insert_movie(structure: movieStructure, user_data: dict = Depends(verify_token)):
+    """
+    Inserta una película en la base de datos.
+    El usuario autenticado se obtiene del token (user_data["sub"], user_data["fullname"])
+    """
     conn = get_connection()
     if conn is None:
         return JSONResponse(status_code=500, content={"error": "No se pudo conectar a la base de datos"})
@@ -121,15 +135,21 @@ def insert_movie(structure: movieStructure, username: str = Depends(verify_token
             structure.Genero, structure.FechaLanzamiento, structure.ClasificacionId
         ))
         conn.commit()
-        return JSONResponse(status_code=201, content={"mensaje": "Película registrada correctamente"})
+        return JSONResponse(status_code=201, content={
+            "mensaje": f"Película registrada correctamente por {user_data['fullname']}"
+        })
     except Error as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
     finally:
         cursor.close()
         conn.close()
 
-@app.post("/registrar_clasificaciones")
-def insert_level(structure: levelStructure, username: str = Depends(verify_token)):
+
+@app.post("/insert_level")
+def insert_level(structure: levelStructure, user_data: dict = Depends(verify_token)):
+    """
+    Inserta una nueva clasificación de películas.
+    """
     conn = get_connection()
     if conn is None:
         return JSONResponse(status_code=500, content={"error": "No se pudo conectar a la base de datos"})
@@ -138,7 +158,9 @@ def insert_level(structure: levelStructure, username: str = Depends(verify_token
     try:
         cursor.execute("INSERT INTO clasificaciones (ClasificacionDesc) VALUES (%s)", (structure.ClasificacionDesc,))
         conn.commit()
-        return JSONResponse(status_code=201, content={"mensaje": "Clasificación registrada correctamente"})
+        return JSONResponse(status_code=201, content={
+            "mensaje": f"Clasificación registrada correctamente por {user_data['fullname']}"
+        })
     except Error as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
     finally:
@@ -147,7 +169,10 @@ def insert_level(structure: levelStructure, username: str = Depends(verify_token
 
 
 @app.get("/get_movies/")
-def get_movies(username: str = Depends(verify_token)):
+def get_movies(user_data: dict = Depends(verify_token)):
+    """
+    Obtiene todas las películas registradas.
+    """
     conn = get_connection()
     if conn is None:
         return {"status": 400, "error": "No se pudo conectar a la base de datos"}
@@ -156,15 +181,23 @@ def get_movies(username: str = Depends(verify_token)):
     try:
         cursor.execute("SELECT * FROM peliculas ORDER BY PeliculaId DESC;")
         rows = cursor.fetchall()
-        return {"status": 200, "data": rows}
+        return {
+            "status": 200,
+            "usuario": user_data["fullname"],
+            "data": rows
+        }
     except Exception as e:
         return {"status": 400, "error": str(e)}
     finally:
         cursor.close()
         conn.close()
 
-@app.get("/obtener_clasificaciones/")
-def get_level(username: str = Depends(verify_token)):
+
+@app.get("/get_level/")
+def get_level(user_data: dict = Depends(verify_token)):
+    """
+    Obtiene todas las clasificaciones.
+    """
     conn = get_connection()
     if conn is None:
         return {"status": 400, "error": "No se pudo conectar a la base de datos"}
@@ -173,12 +206,13 @@ def get_level(username: str = Depends(verify_token)):
     try:
         cursor.execute("SELECT * FROM clasificaciones ORDER BY ClasificacionId ASC;")
         rows = cursor.fetchall()
-        return {"status": 200, "data": rows}
+        return {
+            "status": 200,
+            "usuario": user_data["fullname"],
+            "data": rows
+        }
     except Exception as e:
         return {"status": 400, "error": str(e)}
     finally:
         cursor.close()
         conn.close()
-
-conn = get_connection()
-conn.close()
