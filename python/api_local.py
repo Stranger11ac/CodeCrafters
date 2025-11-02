@@ -171,7 +171,7 @@ def get_level(username: str = Depends(verify_token)):
 
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT * FROM clasificaciones ORDER BY ClasificacionId DESC;")
+        cursor.execute("SELECT * FROM clasificaciones ORDER BY ClasificacionId ASC;")
         rows = cursor.fetchall()
         return {"status": 200, "data": rows}
     except Exception as e:
