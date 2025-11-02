@@ -59,11 +59,12 @@ def get_connection():
         return None
 
 # -------------------- Función para crear token --------------------
-def create_token(username: str, fullname: str):
+def create_token(username: str, fullname: str, role: str):
     expire = datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
     payload = {
-        "sub": username,         # nombre de usuario
-        "fullname": fullname,    # nombre completo
+        "sub": username,        # nombre de usuario
+        "fullname": fullname,   # nombre completo
+        "rol": role,            # rol del usuario
         "exp": expire
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -99,9 +100,12 @@ def login(credentials: LoginRequest):
         hashed_password = hashlib.sha256(credentials.password.encode()).hexdigest()
         if hashed_password != user["password"]:
             raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+        
+        cursor.execute("SELECT * FROM roles WHERE id =%s", (user["rolid"],))
+        roles = cursor.fetchone()
 
         # ✅ Ahora pasamos también el fullname al token
-        token = create_token(user["username"], user["fullname"])
+        token = create_token(user["username"], user["fullname"], roles["Title"])
 
         return {
             "access_token": token,
