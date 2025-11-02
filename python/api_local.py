@@ -64,7 +64,7 @@ def create_token(username: str, fullname: str, role: str):
     payload = {
         "sub": username,        # nombre de usuario
         "fullname": fullname,   # nombre completo
-        "rol": role,            # rol del usuario
+        "role": role,            # rol del usuario
         "exp": expire
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
